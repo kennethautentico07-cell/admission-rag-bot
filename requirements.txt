@@ -1,0 +1,5 @@
+streamlit
+langchain-huggingface
+langchain-chroma
+langchain-google-genai
+python-dotenv
