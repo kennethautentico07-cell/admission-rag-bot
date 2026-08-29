@@ -10,7 +10,7 @@
 
 * **Project Title:** TPC-Assist: A RAG-Based Admission and Policy Chatbot for Talibon Polytechnic College
 * **Chosen Theme:** Document/Knowledge-Base Q&A Assistant
-* **Repository Link:** `https://github.com/your-username/admission-rag-bot` *(Update with your repository URL)*
+* **Repository Link:** `https://github.com/kennethautentico07-cell/admission-rag-bot` 
 
 ---
 
@@ -52,6 +52,6 @@ To ensure high domain accuracy, the RAG knowledge base is grounded in official i
 
 | Team Member Name | Primary Responsibility | Assigned Component |
 | :--- | :--- | :--- |
-| *(Your Name)* | Lead Developer | Data Pipeline, Text Preprocessing, & Vector Embeddings |
-| *(Team Member 2)* | AI Orchestrator | RAG Architecture, LangChain Orchestration, & Prompt Engineering |
-| *(Team Member 3)* | DevOps / UI Engineer | Streamlit Interface, Session Management, & Docker Containerization |
+| Kenneth Autentico | Lead Developer | Data Pipeline, Text Preprocessing, & Vector Embeddings |
+| Kenneth Autentico | AI Orchestrator | RAG Architecture, LangChain Orchestration, & Prompt Engineering |
+| Justine AUtentico, Joar Narabe, Edlyn Joy Sobiono | DevOps / UI Engineer | Streamlit Interface, Session Management, & Docker Containerization |
