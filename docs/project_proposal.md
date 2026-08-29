@@ -55,3 +55,19 @@ To ensure high domain accuracy, the RAG knowledge base is grounded in official i
 | Kenneth Autentico | Lead Developer | Data Pipeline, Text Preprocessing, & Vector Embeddings |
 | Kenneth Autentico | AI Orchestrator | RAG Architecture, LangChain Orchestration, & Prompt Engineering |
 | Justine AUtentico, Joar Narabe, Edlyn Joy Sobiono | DevOps / UI Engineer | Streamlit Interface, Session Management, & Docker Containerization |
+
+
+---
+
+## 7. Data Reflection & Sanitation (1/2 Page)
+
+### Messy Data Challenges
+The primary source document (`TPC_Admission_RAG_Knowledge_Base.pdf`) contained several formatting inconsistencies typical of administrative institutional manuals:
+* **Unstructured Headers & Page Artifacts:** Headers, footers, page numbers, and repeated institutional watermarks disrupted text flow across page boundaries.
+* **Non-Standard Lists:** Bulleted requirement lists contained arbitrary whitespace, non-standard unicode characters, and mixed line breaks.
+* **Tabular Policy Formats:** Fee structures and course offerings were organized in non-border tables, causing standard PDF text extractors to scramble column alignment into ungrammatical sentences.
+
+### Handling & Sanitation Strategy
+1. **Markdown Normalization:** Converted raw PDF outputs into structured Markdown (`data/extracted_enrollment_manual.md`), manually rebuilding table structures into explicit Markdown tables.
+2. **Text Sanitation Pipeline:** Implemented regex-based cleanups to strip non-printable ASCII characters, collapse redundant newlines (`\n\n+`), and remove running headers/footers.
+3. **Semantic Hierarchy Preservation:** Standardized section headers (`#`, `##`, `###`) to ensure that chunking algorithms retain positional context during vector retrieval.
