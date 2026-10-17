@@ -87,8 +87,18 @@ def load_rag_components():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     persist_dir = "chroma_db"
-    # Auto-initialize ChromaDB with knowledge base if not already present
-    if not os.path.exists(persist_dir) or not os.listdir(persist_dir):
+    vectorstore = Chroma(
+        persist_directory=persist_dir,
+        embedding_function=embeddings
+    )
+    
+    # Auto-initialize ChromaDB with knowledge base chunks if empty
+    try:
+        chunk_count = vectorstore._collection.count()
+    except Exception:
+        chunk_count = 0
+
+    if chunk_count == 0:
         manual_path = os.path.join("data", "extracted_enrollment_manual.md")
         if os.path.exists(manual_path):
             with open(manual_path, "r", encoding="utf-8") as f:
@@ -96,21 +106,7 @@ def load_rag_components():
             from langchain_text_splitters import RecursiveCharacterTextSplitter
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             chunks = text_splitter.split_text(raw_text)
-            vectorstore = Chroma.from_texts(
-                texts=chunks,
-                embedding=embeddings,
-                persist_directory=persist_dir
-            )
-        else:
-            vectorstore = Chroma(
-                persist_directory=persist_dir,
-                embedding_function=embeddings
-            )
-    else:
-        vectorstore = Chroma(
-            persist_directory=persist_dir,
-            embedding_function=embeddings
-        )
+            vectorstore.add_texts(chunks)
         
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     
