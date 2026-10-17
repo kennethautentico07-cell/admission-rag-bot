@@ -69,7 +69,7 @@ with st.sidebar:
     st.markdown("**Course:** IS Elective 4 (GenAI Systems)")
     st.markdown("**Institution:** Talibon Polytechnic College")
     st.markdown("**Architecture:** RAG with ChromaDB")
-    st.markdown("**Model:** Gemini 3.6 Flash")
+    st.markdown("**Model:** Gemini 3.8 Flash")
     
     st.divider()
     st.markdown("### ⚙️ Presentation Tools")
@@ -110,7 +110,7 @@ def load_rag_components():
         
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     
-    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     llm = ChatGoogleGenerativeAI(model=model_name, temperature=0)
     
     template = """Answer the question strictly based on the provided context below. If the answer cannot be found in the manual, state clearly: "I cannot find this information in the official TPC manual."
