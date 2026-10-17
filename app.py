@@ -110,7 +110,7 @@ def load_rag_components():
         
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     llm = ChatGoogleGenerativeAI(model=model_name, temperature=0)
     
     template = """Answer the question strictly based on the provided context below. If the answer cannot be found in the manual, state clearly: "I cannot find this information in the official TPC manual."
