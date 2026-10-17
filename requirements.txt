@@ -3,3 +3,4 @@ langchain-huggingface
 langchain-chroma
 langchain-google-genai
 python-dotenv
+sentence_transformers
