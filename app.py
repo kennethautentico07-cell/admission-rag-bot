@@ -85,13 +85,37 @@ st.markdown("Ask context-aware questions regarding admission procedures, documen
 @st.cache_resource
 def load_rag_components():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = Chroma(
-        persist_directory="chroma_db",
-        embedding_function=embeddings
-    )
+    
+    persist_dir = "chroma_db"
+    # Auto-initialize ChromaDB with knowledge base if not already present
+    if not os.path.exists(persist_dir) or not os.listdir(persist_dir):
+        manual_path = os.path.join("data", "extracted_enrollment_manual.md")
+        if os.path.exists(manual_path):
+            with open(manual_path, "r", encoding="utf-8") as f:
+                raw_text = f.read()
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            chunks = text_splitter.split_text(raw_text)
+            vectorstore = Chroma.from_texts(
+                texts=chunks,
+                embedding=embeddings,
+                persist_directory=persist_dir
+            )
+        else:
+            vectorstore = Chroma(
+                persist_directory=persist_dir,
+                embedding_function=embeddings
+            )
+    else:
+        vectorstore = Chroma(
+            persist_directory=persist_dir,
+            embedding_function=embeddings
+        )
+        
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     
-    llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0)
+    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    llm = ChatGoogleGenerativeAI(model=model_name, temperature=0)
     
     template = """Answer the question strictly based on the provided context below. If the answer cannot be found in the manual, state clearly: "I cannot find this information in the official TPC manual."
 

@@ -1,6 +1,7 @@
 streamlit
 langchain-huggingface
+sentence-transformers
 langchain-chroma
 langchain-google-genai
 python-dotenv
-sentence_transformers
+langchain-text-splitters
