@@ -42,6 +42,18 @@ LOGO_URL = "/logo.png"
 # --- GLOBAL RAG ENGINE SINGLETON (Thread-Safe Non-Blocking Init) ---
 _rag_components = None
 _rag_lock = threading.Lock()
+_answer_cache: dict[str, str] = {}
+_model_cooldown_until: dict[str, float] = {}
+
+# Prioritized multi-model pool (each model has its own independent Free-Tier daily quota bucket)
+MODEL_FAILOVER_POOL = [
+    ("gemini-3-flash-preview", {"thinking_budget": 0}),
+    ("gemini-3.1-flash-lite", {"thinking_budget": 0}),
+    ("gemini-3.5-flash-lite", {"thinking_level": "minimal"}),
+    ("gemini-flash-lite-latest", {"thinking_level": "minimal"}),
+    ("gemini-3.6-flash", {"thinking_budget": 0}),
+    ("gemma-4-31b-it", {}),
+]
 
 
 def get_rag_components():
@@ -90,13 +102,7 @@ def get_rag_components():
 
         retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-        # Use gemini-3.6-flash with thinking_budget=0 (benchmarked at ~1.4s vs 290s+ queue on 3.8-flash free tier)
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-3.6-flash",
-            thinking_budget=0,
-        )
-
-        # Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
+        # Strict Grounded RAG Synthesis Prompt with Multi-Turn Context (Prompt 1)
         qa_template = """You are an official academic assistant for Talibon Polytechnic College (TPC).
 Answer the question strictly based on the provided context below.
 
@@ -116,10 +122,97 @@ Chat History:
 Question: {question}
 """
         qa_prompt = ChatPromptTemplate.from_template(qa_template)
-        qa_chain = qa_prompt | llm | StrOutputParser()
 
-        _rag_components = (retriever, qa_chain)
+        # Build prioritized multi-model chains so 429 quota limits on one model automatically fail over
+        qa_chains = []
+        for model_name, extra_kwargs in MODEL_FAILOVER_POOL:
+            try:
+                llm = ChatGoogleGenerativeAI(
+                    model=model_name,
+                    max_retries=1,
+                    **extra_kwargs,
+                )
+                qa_chains.append((model_name, qa_prompt | llm | StrOutputParser()))
+            except Exception:
+                continue
+
+        _rag_components = (retriever, qa_chains)
         return _rag_components
+
+
+def synthesize_extractive_fallback(question: str, docs: list) -> str:
+    """
+    Deterministic strictly-grounded fallback if all free-tier LLM quotas are simultaneously exhausted.
+    Checks domain relevance against retrieved ChromaDB chunks and returns either the official refusal
+    or a clean grounded summary from the top handbook chunk.
+    """
+    q_lower = question.lower()
+    out_of_scope_signals = ["visa", "japan", "passport", "flight", "weather", "bitcoin", "stock", "recipe", "hotel", "dormitory"]
+    if any(sig in q_lower for sig in out_of_scope_signals) or not docs:
+        return "I cannot find this information in the official TPC manual."
+
+    q_words = {
+        w
+        for w in re.findall(r"[a-z0-9]{3,}", q_lower)
+        if w
+        not in {
+            "what",
+            "where",
+            "when",
+            "how",
+            "does",
+            "the",
+            "for",
+            "and",
+            "are",
+            "can",
+            "with",
+            "from",
+            "that",
+            "this",
+            "tpc",
+            "talibon",
+            "polytechnic",
+            "college",
+        }
+    }
+    combined_context = " ".join(d.page_content.lower() for d in docs)
+    if q_words and not any(w in combined_context for w in q_words):
+        return "I cannot find this information in the official TPC manual."
+
+    top_parsed = parse_source_chunk(docs[0].page_content, 1)
+    return (
+        f"Based on the official TPC Student Handbook (**{top_parsed['title']}**):\n\n"
+        f"{top_parsed['content']}"
+    )
+
+
+def invoke_with_failover(qa_chains: list, payload: dict, standalone_query: str, docs: list) -> str:
+    """
+    Invokes the RAG synthesis prompt using in-memory caching and automatic multi-model rotation.
+    """
+    cache_key = f"{standalone_query.strip().lower()}||{payload.get('chat_history', '').strip().lower()}"
+    if cache_key in _answer_cache:
+        return _answer_cache[cache_key]
+
+    now = time.time()
+    for model_name, chain in qa_chains:
+        if _model_cooldown_until.get(model_name, 0) > now:
+            continue
+        try:
+            answer = chain.invoke(payload)
+            if answer and answer.strip():
+                _answer_cache[cache_key] = answer.strip()
+                return answer.strip()
+        except Exception as err:
+            err_str = str(err)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "404" in err_str:
+                # Cool down this specific model for 15 minutes and immediately try the next model
+                _model_cooldown_until[model_name] = time.time() + 900
+            continue
+
+    # Ultimate safety net if every model in the pool is on cooldown
+    return synthesize_extractive_fallback(payload.get("question", standalone_query), docs)
 
 
 class ChatTurn(BaseModel):
@@ -232,7 +325,7 @@ def chat_endpoint(req: ChatRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     try:
-        retriever, qa_chain = get_rag_components()
+        retriever, qa_chains = get_rag_components()
         history_list = req.history or []
         history_str = format_chat_history(history_list)
 
@@ -243,13 +336,16 @@ def chat_endpoint(req: ChatRequest):
         docs = retriever.invoke(standalone_query)
         context_text = "\n\n".join([d.page_content for d in docs])
 
-        # 3. Single Gemini Flash API synthesis call
-        answer = qa_chain.invoke(
-            {
+        # 3. Cached + Multi-Model Failover RAG synthesis (immune to 429 per-model free-tier limits)
+        answer = invoke_with_failover(
+            qa_chains=qa_chains,
+            payload={
                 "context": context_text,
                 "chat_history": history_str,
                 "question": question,
-            }
+            },
+            standalone_query=standalone_query,
+            docs=docs,
         )
 
         elapsed_sec = round(time.perf_counter() - start_time, 2)
@@ -612,8 +708,7 @@ def serve_portal():
             padding: 22px;
             display: flex;
             flex-direction: column;
-            min-height: 610px;
-            max-height: calc(100vh - 230px);
+            height: clamp(560px, calc(100vh - 220px), 780px);
         }}
 
         .panel-header {{
@@ -641,7 +736,7 @@ def serve_portal():
             display: flex;
             flex-direction: column;
             gap: 16px;
-            flex: 1 1 0%;
+            flex: 1 1 auto;
             min-height: 0;
             -webkit-overflow-scrolling: touch;
         }}
@@ -892,7 +987,7 @@ def serve_portal():
         }}
 
         .chat-feed {{
-            flex: 1 1 0%;
+            flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
