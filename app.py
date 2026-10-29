@@ -32,7 +32,7 @@ except Exception:
 app = FastAPI(
     title="TPC-Assist Admission Portal",
     description="RAG-Based Admission & Policy Chatbot for Talibon Polytechnic College",
-    version="2.1.0",
+    version="2.2.0",
 )
 
 
@@ -161,7 +161,6 @@ def build_contextualized_query(question: str, history: List[ChatTurn]) -> tuple[
     if not has_followup_signal:
         return question, False
 
-    # Construct standalone retrieval query anchored by the previous inquiry context
     standalone = f"{question} (regarding: {last_user_topic})"
     return standalone, True
 
@@ -264,7 +263,7 @@ def serve_portal():
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TPC-Assist Admission Portal | Talibon Polytechnic College</title>
     <link rel="icon" href="{LOGO_DATA_URI}" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -308,6 +307,7 @@ def serve_portal():
             min-height: 100vh;
             padding: 20px 24px;
             line-height: 1.5;
+            overflow-x: hidden;
         }}
 
         .portal-shell {{
@@ -315,28 +315,34 @@ def serve_portal():
             margin: 0 auto;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 18px;
         }}
 
         /* --- TOP HERO BANNER WITH 5-STEP ENROLLMENT TRACKER --- */
         .hero-banner {{
             background: linear-gradient(100deg, var(--hero-navy) 0%, #084B66 48%, var(--hero-emerald) 100%);
             border-radius: var(--radius-xl);
-            padding: 26px 36px;
+            padding: 24px 32px;
             color: #FFFFFF;
             display: flex;
             align-items: center;
-            gap: 32px;
+            gap: 28px;
             box-shadow: 0 12px 32px rgba(6, 45, 76, 0.18);
             position: relative;
-            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.14);
+        }}
+
+        .hero-identity {{
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            width: 100%;
         }}
 
         .hero-seal-container {{
             flex-shrink: 0;
-            width: 112px;
-            height: 112px;
+            width: 104px;
+            height: 104px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.1);
             padding: 6px;
@@ -360,15 +366,15 @@ def serve_portal():
 
         .hero-top-row {{
             display: flex;
-            align-items: baseline;
+            align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 6px;
+            gap: 10px;
+            margin-bottom: 4px;
         }}
 
         .hero-title {{
-            font-size: 2rem;
+            font-size: 1.9rem;
             font-weight: 400;
             letter-spacing: -0.02em;
             line-height: 1.15;
@@ -390,21 +396,22 @@ def serve_portal():
             border: 1px solid rgba(255, 255, 255, 0.25);
             padding: 5px 12px;
             border-radius: 999px;
-            font-size: 0.76rem;
+            font-size: 0.75rem;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
+            white-space: nowrap;
         }}
 
         .hero-subtitle {{
-            font-size: 1.02rem;
+            font-size: 0.96rem;
             font-weight: 500;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 18px;
+            color: rgba(255, 255, 255, 0.88);
+            margin-bottom: 16px;
         }}
 
-        /* 5-Step Enrollment Stepper */
+        /* 5-Step Enrollment Stepper (Desktop) */
         .stepper-track {{
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -455,7 +462,7 @@ def serve_portal():
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.35);
             border: 3px solid rgba(255, 255, 255, 0.65);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -463,6 +470,7 @@ def serve_portal():
             font-weight: 800;
             color: var(--hero-navy);
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }}
 
         .step-item.active .step-dot,
@@ -473,14 +481,73 @@ def serve_portal():
         }}
 
         .step-label-num {{
-            font-size: 0.76rem;
+            font-size: 0.74rem;
             font-weight: 600;
             opacity: 0.9;
         }}
 
         .step-label-title {{
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             font-weight: 700;
+        }}
+
+        /* --- MOBILE SEGMENTED TAB SWITCHER (Hidden on Desktop) --- */
+        .mobile-tab-bar {{
+            display: none;
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+            box-shadow: 0 2px 8px rgba(9, 30, 66, 0.05);
+        }}
+
+        .mobile-tab-btn {{
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.84rem;
+            font-weight: 700;
+            padding: 9px 10px;
+            border-radius: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }}
+
+        .mobile-tab-btn.active {{
+            background: var(--hero-navy);
+            color: #FFFFFF;
+            box-shadow: 0 2px 6px rgba(6, 45, 76, 0.2);
+        }}
+
+        .citation-count-dot {{
+            background: var(--emerald-accent);
+            color: #FFFFFF;
+            font-size: 0.68rem;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-weight: 800;
+        }}
+
+        /* Mobile Quick-Prompt Strip inside Chat Panel (Hidden on Desktop) */
+        .mobile-quick-strip {{
+            display: none;
+            overflow-x: auto;
+            gap: 6px;
+            padding-bottom: 8px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid var(--border-subtle);
+            scrollbar-width: none;
+        }}
+
+        .mobile-quick-strip::-webkit-scrollbar {{
+            display: none;
         }}
 
         /* --- SPLIT-SCREEN TWO-COLUMN WORKSPACE --- */
@@ -496,24 +563,25 @@ def serve_portal():
             border-radius: var(--radius-xl);
             border: 1px solid var(--border-subtle);
             box-shadow: var(--shadow-card);
-            padding: 24px;
+            padding: 22px;
             display: flex;
             flex-direction: column;
-            min-height: 620px;
-            max-height: calc(100vh - 235px);
+            min-height: 610px;
+            max-height: calc(100vh - 230px);
         }}
 
         .panel-header {{
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
+            gap: 8px;
+            margin-bottom: 14px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border-subtle);
         }}
 
         .panel-title {{
-            font-size: 1.18rem;
+            font-size: 1.14rem;
             font-weight: 700;
             color: var(--text-primary);
             letter-spacing: -0.01em;
@@ -559,16 +627,17 @@ def serve_portal():
         }}
 
         .program-icon {{
-            width: 52px;
-            height: 52px;
+            width: 48px;
+            height: 48px;
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             color: #FFFFFF;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+            flex-shrink: 0;
         }}
 
         .icon-bsis {{
@@ -585,14 +654,14 @@ def serve_portal():
         }}
 
         .program-card-title {{
-            font-size: 0.92rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1.25;
         }}
 
         .program-card-sub {{
-            font-size: 0.76rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
         }}
 
@@ -613,6 +682,7 @@ def serve_portal():
             font-weight: 600;
             cursor: pointer;
             font-family: inherit;
+            white-space: nowrap;
             transition: all 0.15s ease;
         }}
 
@@ -627,7 +697,7 @@ def serve_portal():
             background: var(--surface-card);
             border: 1.5px solid var(--border-subtle);
             border-radius: var(--radius-lg);
-            padding: 18px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -638,6 +708,8 @@ def serve_portal():
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
             padding-bottom: 10px;
             border-bottom: 1px solid var(--border-subtle);
         }}
@@ -646,7 +718,7 @@ def serve_portal():
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             font-weight: 700;
             color: var(--text-primary);
         }}
@@ -666,15 +738,15 @@ def serve_portal():
 
         .citation-tabs {{
             display: flex;
-            gap: 6px;
+            gap: 5px;
         }}
 
         .citation-tab {{
             background: var(--surface-muted);
             border: 1px solid var(--border-subtle);
             border-radius: 6px;
-            padding: 4px 10px;
-            font-size: 0.74rem;
+            padding: 4px 9px;
+            font-size: 0.73rem;
             font-weight: 700;
             color: var(--text-secondary);
             cursor: pointer;
@@ -698,16 +770,16 @@ def serve_portal():
         }}
 
         .citation-item-title {{
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             font-weight: 700;
             color: var(--text-primary);
             margin-bottom: 6px;
         }}
 
         .citation-item-body {{
-            font-size: 0.86rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
-            line-height: 1.65;
+            line-height: 1.62;
             white-space: pre-line;
         }}
 
@@ -723,16 +795,17 @@ def serve_portal():
         .chat-header-actions {{
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            flex-shrink: 0;
         }}
 
         .latency-pill {{
             background: #ECFDF5;
             color: #065F46;
             border: 1px solid #A7F3D0;
-            padding: 4px 9px;
+            padding: 4px 8px;
             border-radius: 999px;
-            font-size: 0.73rem;
+            font-size: 0.72rem;
             font-weight: 700;
             display: none;
         }}
@@ -741,10 +814,11 @@ def serve_portal():
             background: #EBF3FE;
             color: var(--user-bubble);
             border: 1px solid #BFDBFE;
-            padding: 4px 10px;
+            padding: 4px 9px;
             border-radius: 999px;
-            font-size: 0.75rem;
+            font-size: 0.73rem;
             font-weight: 700;
+            white-space: nowrap;
         }}
 
         .reset-btn {{
@@ -752,11 +826,12 @@ def serve_portal():
             border: 1px solid var(--border-strong);
             color: var(--text-secondary);
             border-radius: 8px;
-            padding: 5px 11px;
-            font-size: 0.76rem;
+            padding: 5px 10px;
+            font-size: 0.74rem;
             font-weight: 600;
             cursor: pointer;
             font-family: inherit;
+            white-space: nowrap;
         }}
 
         .reset-btn:hover {{
@@ -768,15 +843,15 @@ def serve_portal():
         .chat-feed {{
             flex: 1;
             overflow-y: auto;
-            padding: 8px 6px 14px 4px;
+            padding: 6px 4px 12px 2px;
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
         }}
 
         .msg-row {{
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: flex-start;
         }}
 
@@ -785,8 +860,8 @@ def serve_portal():
         }}
 
         .bot-avatar {{
-            width: 38px;
-            height: 38px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             object-fit: contain;
             flex-shrink: 0;
@@ -796,11 +871,11 @@ def serve_portal():
         }}
 
         .msg-bubble {{
-            max-width: 82%;
-            padding: 13px 16px;
+            max-width: 84%;
+            padding: 12px 15px;
             border-radius: 16px;
-            font-size: 0.91rem;
-            line-height: 1.58;
+            font-size: 0.9rem;
+            line-height: 1.56;
             word-wrap: break-word;
         }}
 
@@ -818,23 +893,15 @@ def serve_portal():
             border-top-left-radius: 4px;
         }}
 
-        .msg-bubble ul, .msg-bubble ol {{
-            margin: 6px 0 6px 20px;
-        }}
-
-        .msg-bubble li {{
-            margin-bottom: 4px;
-        }}
-
-        /* Pill Chat Input Bar matching Option 2 Mockup */
+        /* Pill Chat Input Bar */
         .chat-input-shell {{
-            margin-top: 12px;
+            margin-top: 10px;
             display: flex;
             align-items: center;
             background: var(--surface-muted);
             border: 2px solid var(--hero-teal);
             border-radius: 999px;
-            padding: 5px 6px 5px 18px;
+            padding: 4px 5px 4px 16px;
             box-shadow: 0 3px 10px rgba(11, 106, 88, 0.08);
         }}
 
@@ -852,6 +919,7 @@ def serve_portal():
             color: var(--text-primary);
             outline: none;
             padding: 6px 8px 6px 0;
+            min-width: 0;
         }}
 
         .send-btn {{
@@ -859,16 +927,13 @@ def serve_portal():
             color: #FFFFFF;
             border: none;
             border-radius: 999px;
-            padding: 10px 24px;
+            padding: 9px 20px;
             font-family: inherit;
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             font-weight: 700;
             cursor: pointer;
-            transition: opacity 0.15s ease, transform 0.1s ease;
-        }}
-
-        .send-btn:hover {{
-            opacity: 0.94;
+            flex-shrink: 0;
+            transition: opacity 0.15s ease;
         }}
 
         .send-btn:disabled {{
@@ -882,18 +947,153 @@ def serve_portal():
             }}
         }}
 
+        /* =====================================================================
+           RESPONSIVE MOBILE & TABLET LAYOUT (Clean, Zero-Clutter Mobile View)
+           ===================================================================== */
         @media (max-width: 980px) {{
-            .split-workspace {{
-                grid-template-columns: 1fr;
+            body {{
+                padding: 10px 10px 14px 10px;
             }}
-            .panel-card {{
-                max-height: none;
-                min-height: 480px;
+
+            .portal-shell {{
+                gap: 10px;
             }}
+
+            /* Compact Mobile Header */
             .hero-banner {{
+                padding: 14px 16px;
+                border-radius: 14px;
                 flex-direction: column;
-                text-align: center;
-                padding: 22px;
+                align-items: stretch;
+                gap: 10px;
+            }}
+
+            .hero-identity {{
+                gap: 12px;
+                align-items: center;
+            }}
+
+            .hero-seal-container {{
+                width: 52px;
+                height: 52px;
+                padding: 3px;
+            }}
+
+            .hero-title {{
+                font-size: 1.18rem;
+                line-height: 1.2;
+            }}
+
+            .hero-status-badges {{
+                display: none;
+            }}
+
+            .hero-subtitle {{
+                font-size: 0.76rem;
+                margin-bottom: 8px;
+                opacity: 0.85;
+            }}
+
+            /* Horizontal Swipeable 5-Step Pill Tracker on Mobile (No text clipping!) */
+            .stepper-track {{
+                display: flex;
+                overflow-x: auto;
+                gap: 6px;
+                padding: 2px 0 4px 0;
+                scrollbar-width: none;
+            }}
+
+            .stepper-track::-webkit-scrollbar {{
+                display: none;
+            }}
+
+            .stepper-line {{
+                display: none;
+            }}
+
+            .step-item {{
+                flex-direction: row;
+                align-items: center;
+                gap: 6px;
+                background: rgba(255, 255, 255, 0.12);
+                border: 1px solid rgba(255, 255, 255, 0.24);
+                border-radius: 999px;
+                padding: 5px 11px 5px 6px;
+                flex-shrink: 0;
+            }}
+
+            .step-item.active {{
+                background: rgba(255, 255, 255, 0.24);
+                border-color: var(--gold-accent);
+            }}
+
+            .step-dot {{
+                width: 20px;
+                height: 20px;
+                margin-bottom: 0;
+                border-width: 2px;
+                font-size: 0.65rem;
+            }}
+
+            .step-label-num {{
+                display: none;
+            }}
+
+            .step-label-title {{
+                font-size: 0.74rem;
+                white-space: nowrap;
+            }}
+
+            /* Show Segmented Mobile Switcher (Chat vs Handbook Explorer) */
+            .mobile-tab-bar {{
+                display: flex;
+            }}
+
+            .mobile-quick-strip {{
+                display: flex;
+            }}
+
+            .split-workspace {{
+                display: block;
+            }}
+
+            .panel-card {{
+                padding: 14px;
+                border-radius: 14px;
+                min-height: calc(100vh - 210px);
+                max-height: calc(100vh - 210px);
+            }}
+
+            .panel-card.mobile-hidden {{
+                display: none;
+            }}
+
+            .panel-title {{
+                font-size: 0.96rem;
+            }}
+
+            .programs-grid {{
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }}
+
+            .program-card {{
+                flex-direction: row;
+                align-items: center;
+                padding: 10px 12px;
+                gap: 12px;
+            }}
+
+            .program-icon {{
+                width: 40px;
+                height: 40px;
+                font-size: 0.8rem;
+            }}
+
+            .msg-bubble {{
+                max-width: 88%;
+                font-size: 0.87rem;
+                padding: 10px 13px;
             }}
         }}
     </style>
@@ -902,58 +1102,70 @@ def serve_portal():
     <div class="portal-shell">
         <!-- TOP HERO BANNER WITH 5-STEP ENROLLMENT TRACKER -->
         <header class="hero-banner">
-            <div class="hero-seal-container">
-                <img src="{LOGO_DATA_URI}" alt="Talibon Polytechnic College Seal" class="hero-seal" />
-            </div>
-            <div class="hero-content">
-                <div class="hero-top-row">
-                    <h1 class="hero-title"><strong>TPC-Assist</strong> Admission Portal</h1>
-                    <div class="hero-status-badges">
-                        <span class="hero-badge">📚 26 Handbook Pages (38 Chunks)</span>
-                        <span class="hero-badge">⚡ Fast Single-Pass RAG</span>
-                    </div>
+            <div class="hero-identity">
+                <div class="hero-seal-container">
+                    <img src="{LOGO_DATA_URI}" alt="Talibon Polytechnic College Seal" class="hero-seal" />
                 </div>
-                <p class="hero-subtitle">5-Step Enrollment Tracker — Click any step to inspect official procedures</p>
-                <div class="stepper-track" role="navigation" aria-label="5-Step Enrollment Tracker">
-                    <div class="stepper-line">
-                        <div class="stepper-line-progress" id="stepperProgress"></div>
+                <div class="hero-content">
+                    <div class="hero-top-row">
+                        <h1 class="hero-title"><strong>TPC-Assist</strong> Admission Portal</h1>
+                        <div class="hero-status-badges">
+                            <span class="hero-badge">📚 26 Handbook Pages (38 Chunks)</span>
+                            <span class="hero-badge">⚡ Fast Single-Pass RAG</span>
+                        </div>
                     </div>
-                    <button type="button" class="step-item active" onclick="selectStep(1, 'What happens during Step 1: Document Verification at the Registrar Window 1, and what documents are checked?')">
-                        <span class="step-dot">✓</span>
-                        <span class="step-label-num">Step 1:</span>
-                        <span class="step-label-title">Verification</span>
-                    </button>
-                    <button type="button" class="step-item active" onclick="selectStep(2, 'What is required for Step 2: TPC Admission Test at the Guidance and Testing Center?')">
-                        <span class="step-dot">2</span>
-                        <span class="step-label-num">Step 2:</span>
-                        <span class="step-label-title">Entrance Test</span>
-                    </button>
-                    <button type="button" class="step-item" onclick="selectStep(3, 'How does Step 3: Academic Advising and Subject Loading work at the Department Dean Office?')">
-                        <span class="step-dot">3</span>
-                        <span class="step-label-num">Step 3:</span>
-                        <span class="step-label-title">Academic Advising</span>
-                    </button>
-                    <button type="button" class="step-item" onclick="selectStep(4, 'What happens in Step 4: Assessment of Fees at the Accounting and Cashier Office?')">
-                        <span class="step-dot">4</span>
-                        <span class="step-label-num">Step 4:</span>
-                        <span class="step-label-title">Assessment</span>
-                    </button>
-                    <button type="button" class="step-item" onclick="selectStep(5, 'How do I complete Step 5: Validation and Issuance of the Certificate of Registration (COR)?')">
-                        <span class="step-dot">5</span>
-                        <span class="step-label-num">Step 5:</span>
-                        <span class="step-label-title">COR Release</span>
-                    </button>
+                    <p class="hero-subtitle">5-Step Enrollment Tracker — Tap any step to inspect official procedures</p>
+                    <div class="stepper-track" role="navigation" aria-label="5-Step Enrollment Tracker">
+                        <div class="stepper-line">
+                            <div class="stepper-line-progress" id="stepperProgress"></div>
+                        </div>
+                        <button type="button" class="step-item active" onclick="selectStep(1, 'What happens during Step 1: Document Verification at the Registrar Window 1, and what documents are checked?')">
+                            <span class="step-dot">✓</span>
+                            <span class="step-label-num">Step 1:</span>
+                            <span class="step-label-title">Verification</span>
+                        </button>
+                        <button type="button" class="step-item active" onclick="selectStep(2, 'What is required for Step 2: TPC Admission Test at the Guidance and Testing Center?')">
+                            <span class="step-dot">2</span>
+                            <span class="step-label-num">Step 2:</span>
+                            <span class="step-label-title">Entrance Test</span>
+                        </button>
+                        <button type="button" class="step-item" onclick="selectStep(3, 'How does Step 3: Academic Advising and Subject Loading work at the Department Dean Office?')">
+                            <span class="step-dot">3</span>
+                            <span class="step-label-num">Step 3:</span>
+                            <span class="step-label-title">Academic Advising</span>
+                        </button>
+                        <button type="button" class="step-item" onclick="selectStep(4, 'What happens in Step 4: Assessment of Fees at the Accounting and Cashier Office?')">
+                            <span class="step-dot">4</span>
+                            <span class="step-label-num">Step 4:</span>
+                            <span class="step-label-title">Assessment</span>
+                        </button>
+                        <button type="button" class="step-item" onclick="selectStep(5, 'How do I complete Step 5: Validation and Issuance of the Certificate of Registration (COR)?')">
+                            <span class="step-dot">5</span>
+                            <span class="step-label-num">Step 5:</span>
+                            <span class="step-label-title">COR Release</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
 
+        <!-- MOBILE SEGMENTED TAB SWITCHER (Only visible on phones/tablets) -->
+        <div class="mobile-tab-bar" role="tablist">
+            <button type="button" class="mobile-tab-btn active" id="tabBtnChat" onclick="switchMobileView('chat')">
+                💬 AI Chat Assistant
+            </button>
+            <button type="button" class="mobile-tab-btn" id="tabBtnExplorer" onclick="switchMobileView('explorer')">
+                📚 Handbook &amp; Citations <span class="citation-count-dot" id="mobileCitationBadge">3</span>
+            </button>
+        </div>
+
         <!-- TWO-COLUMN SPLIT WORKSPACE -->
         <main class="split-workspace">
             <!-- LEFT SIDE: TPC HANDBOOK & PROGRAMS EXPLORER -->
-            <section class="panel-card" aria-label="TPC Handbook and Programs Explorer">
+            <section class="panel-card mobile-hidden" id="panelExplorer" aria-label="TPC Handbook and Programs Explorer">
                 <div class="panel-header">
                     <h2 class="panel-title">TPC Handbook &amp; Programs Explorer</h2>
-                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">Click to Query</span>
+                    <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 600;">Tap to Query</span>
                 </div>
 
                 <div class="explorer-scroll">
@@ -1020,14 +1232,23 @@ def serve_portal():
             </section>
 
             <!-- RIGHT SIDE: INTUITIVE ADMISSION AI CHATBOT CONVERSATION -->
-            <section class="panel-card" aria-label="Intuitive Admission AI Chatbot Conversation">
+            <section class="panel-card" id="panelChat" aria-label="Intuitive Admission AI Chatbot Conversation">
                 <div class="panel-header">
-                    <h2 class="panel-title">Intuitive Admission AI Chatbot Conversation</h2>
+                    <h2 class="panel-title">Admission AI Assistant</h2>
                     <div class="chat-header-actions">
                         <span class="latency-pill" id="latencyBadge">⚡ 0.0s</span>
                         <span class="memory-pill" id="memoryBadge">Memory: 0 turns</span>
-                        <button type="button" class="reset-btn" onclick="resetConversation()">Reset Chat</button>
+                        <button type="button" class="reset-btn" onclick="resetConversation()">Reset</button>
                     </div>
+                </div>
+
+                <!-- Mobile Quick-Inquiry Strip so mobile users can tap topics right inside Chat -->
+                <div class="mobile-quick-strip">
+                    <button type="button" class="topic-pill" onclick="askQuestion('What documents do incoming freshmen need to submit for admission?')">📋 Freshman Docs</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('What are the admission requirements for transferees?')">🔄 Transferees</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('What degree programs and courses are offered at TPC?')">🎓 7 TPC Programs</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('What is the attendance and tardiness policy at TPC?')">🕒 Attendance Rule</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('How do I apply for a student visa to study in Japan?')">🛡️ Refusal Demo</button>
                 </div>
 
                 <div class="chat-feed" id="chatFeed">
@@ -1035,7 +1256,7 @@ def serve_portal():
                         <img src="{LOGO_DATA_URI}" alt="TPC Seal" class="bot-avatar" />
                         <div class="msg-bubble">
                             Welcome to the <strong>Talibon Polytechnic College (TPC) Admission Portal</strong>! 👋<br><br>
-                            I am grounded strictly in the official 26-page TPC Student Handbook. Ask me about <strong>freshman checklists, transferee credentials, offered degree programs, academic load rules, or the 5-step enrollment process</strong>—or click any card on the left explorer to begin.
+                            I am grounded strictly in the official 26-page TPC Student Handbook. Ask me about <strong>freshman checklists, transferee credentials, offered degree programs, academic load rules, or the 5-step enrollment process</strong>.
                         </div>
                     </div>
                 </div>
@@ -1045,7 +1266,7 @@ def serve_portal():
                         type="text"
                         id="chatInput"
                         class="chat-input"
-                        placeholder="Ask about freshman requirements, courses, or follow-up questions..."
+                        placeholder="Ask about freshman requirements, courses..."
                         autocomplete="off"
                     />
                     <button type="submit" id="sendBtn" class="send-btn">Send</button>
@@ -1074,6 +1295,25 @@ def serve_portal():
                 content: "Enrollment is valid only during the official registration period. Students become officially enrolled only after receiving a validated Certificate of Registration (COR)."
             }}
         ];
+
+        function switchMobileView(view) {{
+            const panelChat = document.getElementById("panelChat");
+            const panelExplorer = document.getElementById("panelExplorer");
+            const btnChat = document.getElementById("tabBtnChat");
+            const btnExplorer = document.getElementById("tabBtnExplorer");
+
+            if (view === "chat") {{
+                panelChat.classList.remove("mobile-hidden");
+                panelExplorer.classList.add("mobile-hidden");
+                btnChat.classList.add("active");
+                btnExplorer.classList.remove("active");
+            }} else {{
+                panelExplorer.classList.remove("mobile-hidden");
+                panelChat.classList.add("mobile-hidden");
+                btnExplorer.classList.add("active");
+                btnChat.classList.remove("active");
+            }}
+        }}
 
         function formatMarkdown(text) {{
             let escaped = text
@@ -1148,6 +1388,11 @@ def serve_portal():
             const sendBtn = document.getElementById("sendBtn");
             if (!questionText || sendBtn.disabled) return;
 
+            // On mobile, automatically switch to the Chat tab so user sees the conversation immediately
+            if (window.innerWidth <= 980) {{
+                switchMobileView("chat");
+            }}
+
             input.value = "";
             sendBtn.disabled = true;
 
@@ -1199,6 +1444,7 @@ def serve_portal():
 
                 if (data.sources && data.sources.length > 0) {{
                     currentSources = data.sources;
+                    document.getElementById("mobileCitationBadge").textContent = String(data.sources.length);
                     switchCitationTab(0);
                 }}
             }} catch (err) {{
@@ -1227,7 +1473,7 @@ def serve_portal():
             feed.innerHTML = "";
             appendMessage(
                 "assistant",
-                "Conversation session reset. Ask a new question about <strong>TPC admission requirements, degree programs, or enrollment policies</strong>, or click any card on the left explorer."
+                "Conversation session reset. Ask a new question about <strong>TPC admission requirements, degree programs, or enrollment policies</strong>."
             );
         }}
     </script>
