@@ -6,14 +6,15 @@
 **Instructor:** Jessie A. Melendres  
 **Institution:** Talibon Polytechnic College — Bachelor of Science in Information Systems (BSIS)  
 **Repository:** `https://github.com/kennethautentico07-cell/admission-rag-bot`  
+**Live Production URL:** `https://admission-rag-bot-production.up.railway.app`  
 
 ### Project Team & Pipeline Ownership
 
 | Team Member | Role | Assigned Pipeline Component |
 | :--- | :--- | :--- |
 | **Kenneth Crescencio Autentico** | Lead Developer & AI Orchestrator | Data Pipeline, Text Sanitation, Vector Embeddings, ChromaDB Indexing, & LangChain LCEL Orchestration |
-| **Justine Autentico** | DevOps & UI Engineer | Streamlit Interface, Session State Memory Integration, & Multi-Stage Docker Containerization |
-| **Joar Narabe** | DevOps & UI Engineer | Minimalist TPC Branding, Expandable Source Citation UX, & Cloud Deployment Configuration |
+| **Justine Autentico** | DevOps & UI Engineer | FastAPI Split-Screen Web Portal, Session State Memory Integration, & Multi-Stage Docker Containerization |
+| **Joar Narabe** | DevOps & UI Engineer | 5-Step Enrollment Tracker UI, Verified Citation Inspector UX, & Railway Cloud Deployment Configuration |
 | **Edlyn Joy Sobiono** | QA & Documentation Lead | Anti-Hallucination Benchmark Testing, Distance Metric Experiments, & Technical Documentation |
 
 ---
@@ -154,12 +155,12 @@ In `docs/model_customization.md`, we evaluated whether to fine-tune an open-sour
 
 ### 7.2 Multi-Stage Docker Containerization (`Dockerfile`)
 To fulfill **Checkpoint 4 Deliverable 17**, we authored a multi-stage `Dockerfile`:
-* **Stage 1 (`builder`):** Starts from `python:3.11-slim`, installs `build-essential`, creates an isolated virtual environment (`/opt/venv`), installs CPU-only PyTorch wheels (`https://download.pytorch.org/whl/cpu`) to eliminate ~1.8 GB of unused NVIDIA CUDA binaries, and installs all dependencies from `requirements.txt`.
-* **Stage 2 (`runner`):** Starts from a clean `python:3.11-slim` image without compilers, copies `/opt/venv` from `builder`, copies application files (`app.py`, `data/`, `src/`, `docs/`), creates an unprivileged user (`appuser`), configures a container `HEALTHCHECK` against `/_stcore/health`, and launches Streamlit bound to `${PORT:-8501}`.
+* **Stage 1 (`builder`):** Starts from `python:3.11-slim`, installs `build-essential`, creates an isolated virtual environment (`/opt/venv`), and installs all dependencies from `requirements.txt`.
+* **Stage 2 (`runner`):** Starts from a clean `python:3.11-slim` image without compilers, installs `libgomp1` (required by PyTorch/ChromaDB), copies `/opt/venv` from `builder`, copies application files (`app.py`, `data/`, `src/`, `docs/`, `tpc_logo.png`), executes `RUN python src/ingest.py` at build time so the 38 handbook chunks and `all-MiniLM-L6-v2` embeddings are pre-indexed inside the container, and launches Uvicorn (`uvicorn app:app --host 0.0.0.0 --port 8501`).
 
 ### 7.3 Secrets Management & Cloud Deployment Evidence
-* **Credential Isolation:** API credentials (`GEMINI_API_KEY`, `GEMINI_MODEL`) are never hardcoded in source files or Docker layers. `.env` is excluded via both `.gitignore` and `.dockerignore`, while `.env.example` documents required keys.
-* **Production Deployment:** The repository is connected to an automated container deployment pipeline on GitHub (`industrious-communication / production`), building from the `main` branch and injecting `GEMINI_API_KEY` via encrypted platform environment variables.
+* **Credential Isolation:** API credentials (`GOOGLE_API_KEY` / `GEMINI_API_KEY`) are never hardcoded in source files or Docker layers. `.env` is excluded via both `.gitignore` and `.dockerignore`, while `.env.example` documents required keys.
+* **Production Deployment:** The repository is connected to an automated container deployment pipeline on Railway (`industrious-communication / production`) at `https://admission-rag-bot-production.up.railway.app`, building automatically from the GitHub `main` branch and injecting `GOOGLE_API_KEY` via encrypted platform environment variables.
 
 ---
 
