@@ -92,14 +92,11 @@ def get_rag_components():
                 vectorstore.add_texts(chunks)
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-    model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
-    # Configure Gemini 3.8 Flash with thinking_level="low" for fast, low-latency RAG synthesis
-    # Note: Do not set small timeout values as google-genai HttpOptions interprets timeout in milliseconds!
+    # Use gemini-3.6-flash with thinking_budget=0 (benchmarked at ~1.4s vs 290s+ queue on 3.8-flash free tier)
     llm = ChatGoogleGenerativeAI(
-        model=model_name,
-        temperature=0,
-        thinking_level="low",
+        model="gemini-3.6-flash",
+        thinking_budget=0,
     )
 
     # Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
@@ -1167,7 +1164,13 @@ def serve_portal():
                     }})
                 }});
 
-                const data = await resp.json();
+                const rawText = await resp.text();
+                let data;
+                try {{
+                    data = JSON.parse(rawText);
+                }} catch (_) {{
+                    throw new Error(`Server response error (${{resp.status}}): ${{rawText.slice(0, 120)}}`);
+                }}
                 if (!resp.ok) {{
                     throw new Error(data.detail || "Unable to process request.");
                 }}
