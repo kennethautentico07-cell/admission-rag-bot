@@ -5,3 +5,5 @@ langchain-chroma
 langchain-google-genai
 python-dotenv
 langchain-text-splitters
+pypdf
+tiktoken
