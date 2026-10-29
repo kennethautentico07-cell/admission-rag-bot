@@ -1,6 +1,6 @@
-import base64
 import os
 import re
+import threading
 import time
 from typing import List, Optional
 
@@ -8,7 +8,8 @@ import torch
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -32,75 +33,71 @@ except Exception:
 app = FastAPI(
     title="TPC-Assist Admission Portal",
     description="RAG-Based Admission & Policy Chatbot for Talibon Polytechnic College",
-    version="2.2.0",
+    version="2.3.0",
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
+LOGO_URL = "/logo.png"
 
-def get_base64_logo(path: str = "tpc_logo.png") -> str:
-    """Loads the official TPC seal as a base64 data URI."""
-    if not os.path.exists(path):
-        return ""
-    with open(path, "rb") as f:
-        return "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
-
-
-LOGO_DATA_URI = get_base64_logo()
-
-# --- GLOBAL RAG ENGINE SINGLETON ---
+# --- GLOBAL RAG ENGINE SINGLETON (Thread-Safe Non-Blocking Init) ---
 _rag_components = None
+_rag_lock = threading.Lock()
 
 
 def get_rag_components():
     global _rag_components
     if _rag_components is not None:
         return _rag_components
+    with _rag_lock:
+        if _rag_components is not None:
+            return _rag_components
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
-    )
-    # Pre-warm the PyTorch embedding model in memory so first user query is instant
-    embeddings.embed_query("Talibon Polytechnic College admission requirements")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2",
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+        # Pre-warm the PyTorch embedding model in memory so first user query is instant
+        embeddings.embed_query("Talibon Polytechnic College admission requirements")
 
-    persist_dir = "chroma_db"
-    vectorstore = Chroma(
-        persist_directory=persist_dir,
-        embedding_function=embeddings,
-        collection_metadata={"hnsw:space": "cosine"},
-    )
+        persist_dir = "chroma_db"
+        vectorstore = Chroma(
+            persist_directory=persist_dir,
+            embedding_function=embeddings,
+            collection_metadata={"hnsw:space": "cosine"},
+        )
 
-    try:
-        chunk_count = vectorstore._collection.count()
-    except Exception:
-        chunk_count = 0
-
-    if chunk_count < 20:
         try:
-            from src.ingest import run_ingestion_pipeline
-
-            vectorstore = run_ingestion_pipeline(reset_db=False)
+            chunk_count = vectorstore._collection.count()
         except Exception:
-            manual_path = os.path.join("data", "extracted_enrollment_manual.md")
-            if os.path.exists(manual_path):
-                with open(manual_path, "r", encoding="utf-8") as f:
-                    raw_text = f.read()
-                from langchain_text_splitters import RecursiveCharacterTextSplitter
+            chunk_count = 0
 
-                splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-                chunks = splitter.split_text(raw_text)
-                vectorstore.add_texts(chunks)
+        if chunk_count < 20:
+            try:
+                from src.ingest import run_ingestion_pipeline
 
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+                vectorstore = run_ingestion_pipeline(reset_db=False)
+            except Exception:
+                manual_path = os.path.join("data", "extracted_enrollment_manual.md")
+                if os.path.exists(manual_path):
+                    with open(manual_path, "r", encoding="utf-8") as f:
+                        raw_text = f.read()
+                    from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-    # Use gemini-3.6-flash with thinking_budget=0 (benchmarked at ~1.4s vs 290s+ queue on 3.8-flash free tier)
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3.6-flash",
-        thinking_budget=0,
-    )
+                    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+                    chunks = splitter.split_text(raw_text)
+                    vectorstore.add_texts(chunks)
 
-    # Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
-    qa_template = """You are an official academic assistant for Talibon Polytechnic College (TPC).
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+        # Use gemini-3.6-flash with thinking_budget=0 (benchmarked at ~1.4s vs 290s+ queue on 3.8-flash free tier)
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-3.6-flash",
+            thinking_budget=0,
+        )
+
+        # Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
+        qa_template = """You are an official academic assistant for Talibon Polytechnic College (TPC).
 Answer the question strictly based on the provided context below.
 
 Guidelines:
@@ -118,11 +115,11 @@ Chat History:
 
 Question: {question}
 """
-    qa_prompt = ChatPromptTemplate.from_template(qa_template)
-    qa_chain = qa_prompt | llm | StrOutputParser()
+        qa_prompt = ChatPromptTemplate.from_template(qa_template)
+        qa_chain = qa_prompt | llm | StrOutputParser()
 
-    _rag_components = (retriever, qa_chain)
-    return _rag_components
+        _rag_components = (retriever, qa_chain)
+        return _rag_components
 
 
 class ChatTurn(BaseModel):
@@ -200,10 +197,25 @@ def parse_source_chunk(raw_chunk: str, idx: int) -> dict:
 
 @app.on_event("startup")
 def startup_event():
-    try:
-        get_rag_components()
-    except Exception as e:
-        print(f"[WARN] Deferred RAG initialization: {e}")
+    # Warm up PyTorch & ChromaDB asynchronously so HTTP server renders HTML immediately on mobile
+    def _warmup():
+        try:
+            get_rag_components()
+        except Exception as e:
+            print(f"[WARN] Deferred RAG initialization: {e}")
+
+    threading.Thread(target=_warmup, daemon=True).start()
+
+
+@app.get("/logo.png")
+def serve_logo():
+    if os.path.exists("tpc_logo.png"):
+        return FileResponse(
+            "tpc_logo.png",
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=604800, immutable"},
+        )
+    raise HTTPException(status_code=404, detail="Logo not found")
 
 
 @app.get("/health")
@@ -265,7 +277,8 @@ def serve_portal():
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TPC-Assist Admission Portal | Talibon Polytechnic College</title>
-    <link rel="icon" href="{LOGO_DATA_URI}" />
+    <link rel="icon" href="{LOGO_URL}" />
+    <link rel="preload" as="image" href="{LOGO_URL}" fetchpriority="high" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1104,7 +1117,7 @@ def serve_portal():
         <header class="hero-banner">
             <div class="hero-identity">
                 <div class="hero-seal-container">
-                    <img src="{LOGO_DATA_URI}" alt="Talibon Polytechnic College Seal" class="hero-seal" />
+                    <img src="{LOGO_URL}" alt="Talibon Polytechnic College Seal" class="hero-seal" width="104" height="104" fetchpriority="high" decoding="async" />
                 </div>
                 <div class="hero-content">
                     <div class="hero-top-row">
@@ -1253,7 +1266,7 @@ def serve_portal():
 
                 <div class="chat-feed" id="chatFeed">
                     <div class="msg-row assistant">
-                        <img src="{LOGO_DATA_URI}" alt="TPC Seal" class="bot-avatar" />
+                        <img src="{LOGO_URL}" alt="TPC Seal" class="bot-avatar" width="34" height="34" decoding="async" />
                         <div class="msg-bubble">
                             Welcome to the <strong>Talibon Polytechnic College (TPC) Admission Portal</strong>! 👋<br><br>
                             I am grounded strictly in the official 26-page TPC Student Handbook. Ask me about <strong>freshman checklists, transferee credentials, offered degree programs, academic load rules, or the 5-step enrollment process</strong>.
@@ -1276,7 +1289,7 @@ def serve_portal():
     </div>
 
     <script>
-        const LOGO_URI = "{LOGO_DATA_URI}";
+        const LOGO_URI = "{LOGO_URL}";
         let chatHistory = [];
         let currentSources = [
             {{
