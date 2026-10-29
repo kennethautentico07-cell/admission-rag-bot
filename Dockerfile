@@ -48,6 +48,7 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Copy application source, knowledge base data, and assets
 COPY app.py tpc_logo.png ./
+COPY .streamlit/ ./.streamlit/
 COPY data/ ./data/
 COPY src/ ./src/
 COPY docs/ ./docs/
