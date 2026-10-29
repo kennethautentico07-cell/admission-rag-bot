@@ -1,6 +1,9 @@
 venv/
 __pycache__/
+*.pyc
 .env
 .git/
 .gitignore
+chroma_db/
 *.ipynb
+GenAI Capstone Semester Project Guide*.pdf

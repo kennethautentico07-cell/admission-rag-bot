@@ -3,7 +3,7 @@
 **Project Title:** TPC-Assist: A RAG-Based Admission and Policy Chatbot for Talibon Polytechnic College  
 **Course:** IS Professional Elective 4 — Generative AI Systems  
 **Instructor:** Jessie A. Melendres  
-**Model:** Gemini 3.6 Flash (`ChatGoogleGenerativeAI`)  
+**Model:** Gemini 3.8 Flash (`ChatGoogleGenerativeAI`)  
 
 ---
 

@@ -42,7 +42,7 @@ To ensure high domain accuracy, the RAG knowledge base is grounded in official i
 ## 5. Success Criteria
 
 1. **Technical Accuracy & Hallucination Prevention:** The system correctly grounds answers in retrieved context chunks for at least 90% of in-scope inquiries and explicitly refuses to answer out-of-scope queries (e.g., student visa requests) using defined system prompts.
-2. **Retrieval Performance:** Query retrieval from ChromaDB and response synthesis via Gemini 3.6 Flash completes with an end-to-end latency under 3 seconds.
+2. **Retrieval Performance:** Query retrieval from ChromaDB and response synthesis via Gemini 3.8 Flash completes with an end-to-end latency under 3 seconds.
 3. **Source Transparency:** 100% of generated responses display an expandable reference panel showing the exact context chunks retrieved from the vector database.
 4. **Usability:** A clean, responsive Streamlit user interface featuring a customized TPC theme, custom logo integration, and multi-turn conversational state tracking.
 
