@@ -551,16 +551,49 @@ def serve_portal():
         /* Mobile Quick-Prompt Strip inside Chat Panel (Hidden on Desktop) */
         .mobile-quick-strip {{
             display: none;
+            flex-shrink: 0;
+            align-items: center;
             overflow-x: auto;
+            overflow-y: hidden;
             gap: 6px;
-            padding-bottom: 8px;
-            margin-bottom: 6px;
-            border-bottom: 1px solid var(--border-subtle);
+            height: 38px;
+            padding: 2px 2px;
+            margin-top: 6px;
             scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
         }}
 
         .mobile-quick-strip::-webkit-scrollbar {{
             display: none;
+        }}
+
+        .mobile-quick-strip .topic-pill {{
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            height: 30px;
+            padding: 0 11px;
+            font-size: 0.75rem;
+            line-height: 1;
+        }}
+
+        .mobile-grounded-label {{
+            display: none;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--emerald-accent);
+            white-space: nowrap;
+        }}
+
+        .grounded-dot {{
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--emerald-accent);
+            box-shadow: 0 0 0 3px rgba(13, 122, 95, 0.16);
+            flex-shrink: 0;
         }}
 
         /* --- SPLIT-SCREEN TWO-COLUMN WORKSPACE --- */
@@ -591,6 +624,7 @@ def serve_portal():
             margin-bottom: 14px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border-subtle);
+            flex-shrink: 0;
         }}
 
         .panel-title {{
@@ -607,13 +641,16 @@ def serve_portal():
             display: flex;
             flex-direction: column;
             gap: 16px;
-            flex: 1;
+            flex: 1 1 0%;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
         }}
 
         .programs-grid {{
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
+            flex-shrink: 0;
         }}
 
         .program-card {{
@@ -683,6 +720,7 @@ def serve_portal():
             display: flex;
             flex-wrap: wrap;
             gap: 7px;
+            flex-shrink: 0;
         }}
 
         .topic-pill {{
@@ -714,7 +752,7 @@ def serve_portal():
             display: flex;
             flex-direction: column;
             gap: 12px;
-            flex: 1;
+            flex: 1 0 auto;
         }}
 
         .citation-box-header {{
@@ -854,8 +892,10 @@ def serve_portal():
         }}
 
         .chat-feed {{
-            flex: 1;
+            flex: 1 1 0%;
+            min-height: 0;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             padding: 6px 4px 12px 2px;
             display: flex;
             flex-direction: column;
@@ -908,7 +948,8 @@ def serve_portal():
 
         /* Pill Chat Input Bar */
         .chat-input-shell {{
-            margin-top: 10px;
+            margin-top: 8px;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             background: var(--surface-muted);
@@ -964,56 +1005,84 @@ def serve_portal():
            RESPONSIVE MOBILE & TABLET LAYOUT (Clean, Zero-Clutter Mobile View)
            ===================================================================== */
         @media (max-width: 980px) {{
+            html, body {{
+                height: 100vh;
+                height: 100dvh;
+                overflow: hidden;
+                padding: 0;
+                margin: 0;
+            }}
+
             body {{
-                padding: 10px 10px 14px 10px;
+                padding: 8px 8px 10px 8px;
             }}
 
             .portal-shell {{
-                gap: 10px;
+                height: 100%;
+                gap: 8px;
+                display: flex;
+                flex-direction: column;
             }}
 
-            /* Compact Mobile Header */
+            /* Ultra-Clean Compact Mobile Header */
             .hero-banner {{
-                padding: 14px 16px;
+                padding: 10px 12px;
                 border-radius: 14px;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
+                flex-shrink: 0;
+                display: block;
             }}
 
             .hero-identity {{
-                gap: 12px;
+                display: grid;
+                grid-template-columns: 38px minmax(0, 1fr);
+                column-gap: 10px;
+                row-gap: 8px;
                 align-items: center;
             }}
 
             .hero-seal-container {{
-                width: 52px;
-                height: 52px;
-                padding: 3px;
+                width: 38px;
+                height: 38px;
+                padding: 2px;
+                grid-row: 1;
+                grid-column: 1;
+            }}
+
+            .hero-content {{
+                display: contents;
+            }}
+
+            .hero-top-row {{
+                grid-row: 1;
+                grid-column: 2;
+                margin-bottom: 0;
             }}
 
             .hero-title {{
-                font-size: 1.18rem;
+                font-size: 1.05rem;
                 line-height: 1.2;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }}
 
-            .hero-status-badges {{
+            .hero-status-badges,
+            .hero-subtitle {{
                 display: none;
             }}
 
-            .hero-subtitle {{
-                font-size: 0.76rem;
-                margin-bottom: 8px;
-                opacity: 0.85;
-            }}
-
-            /* Horizontal Swipeable 5-Step Pill Tracker on Mobile (No text clipping!) */
+            /* Full-Width Horizontal Swipeable 5-Step Pill Tracker on Mobile */
             .stepper-track {{
+                grid-row: 2;
+                grid-column: 1 / -1;
                 display: flex;
+                align-items: center;
                 overflow-x: auto;
+                overflow-y: hidden;
                 gap: 6px;
-                padding: 2px 0 4px 0;
+                padding: 2px 0;
                 scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
             }}
 
             .stepper-track::-webkit-scrollbar {{
@@ -1027,25 +1096,26 @@ def serve_portal():
             .step-item {{
                 flex-direction: row;
                 align-items: center;
-                gap: 6px;
-                background: rgba(255, 255, 255, 0.12);
-                border: 1px solid rgba(255, 255, 255, 0.24);
+                gap: 5px;
+                background: rgba(255, 255, 255, 0.13);
+                border: 1px solid rgba(255, 255, 255, 0.25);
                 border-radius: 999px;
-                padding: 5px 11px 5px 6px;
+                padding: 4px 10px 4px 5px;
                 flex-shrink: 0;
+                height: 28px;
             }}
 
             .step-item.active {{
-                background: rgba(255, 255, 255, 0.24);
+                background: rgba(255, 255, 255, 0.25);
                 border-color: var(--gold-accent);
             }}
 
             .step-dot {{
-                width: 20px;
-                height: 20px;
+                width: 18px;
+                height: 18px;
                 margin-bottom: 0;
-                border-width: 2px;
-                font-size: 0.65rem;
+                border-width: 1.5px;
+                font-size: 0.62rem;
             }}
 
             .step-label-num {{
@@ -1053,13 +1123,24 @@ def serve_portal():
             }}
 
             .step-label-title {{
-                font-size: 0.74rem;
+                font-size: 0.72rem;
                 white-space: nowrap;
+                line-height: 1;
             }}
 
-            /* Show Segmented Mobile Switcher (Chat vs Handbook Explorer) */
+            /* Single-Line Segmented Mobile Switcher (Chat vs Handbook) */
             .mobile-tab-bar {{
                 display: flex;
+                flex-shrink: 0;
+                padding: 3px;
+                border-radius: 11px;
+            }}
+
+            .mobile-tab-btn {{
+                font-size: 0.78rem;
+                padding: 7px 8px;
+                white-space: nowrap;
+                border-radius: 8px;
             }}
 
             .mobile-quick-strip {{
@@ -1067,22 +1148,54 @@ def serve_portal():
             }}
 
             .split-workspace {{
-                display: block;
+                flex: 1 1 0%;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
             }}
 
             .panel-card {{
-                padding: 14px;
+                padding: 12px;
                 border-radius: 14px;
-                min-height: calc(100vh - 210px);
-                max-height: calc(100vh - 210px);
+                flex: 1 1 0%;
+                min-height: 0;
+                max-height: none;
+                height: 100%;
             }}
 
             .panel-card.mobile-hidden {{
+                display: none !important;
+            }}
+
+            .panel-header {{
+                margin-bottom: 8px;
+                padding-bottom: 8px;
+                flex-shrink: 0;
+            }}
+
+            /* Hide duplicate 'Admission AI Assistant' heading inside Chat card on mobile */
+            #panelChat .panel-title {{
                 display: none;
             }}
 
+            .mobile-grounded-label {{
+                display: inline-flex;
+            }}
+
             .panel-title {{
-                font-size: 0.96rem;
+                font-size: 0.92rem;
+                white-space: nowrap;
+            }}
+
+            .latency-pill,
+            .memory-pill {{
+                font-size: 0.69rem;
+                padding: 3px 7px;
+            }}
+
+            .reset-btn {{
+                font-size: 0.7rem;
+                padding: 4px 8px;
             }}
 
             .programs-grid {{
@@ -1098,15 +1211,37 @@ def serve_portal():
             }}
 
             .program-icon {{
-                width: 40px;
-                height: 40px;
-                font-size: 0.8rem;
+                width: 38px;
+                height: 38px;
+                font-size: 0.78rem;
+            }}
+
+            .bot-avatar {{
+                width: 28px;
+                height: 28px;
             }}
 
             .msg-bubble {{
                 max-width: 88%;
-                font-size: 0.87rem;
-                padding: 10px 13px;
+                font-size: 0.85rem;
+                line-height: 1.48;
+                padding: 10px 12px;
+            }}
+
+            .chat-input-shell {{
+                margin-top: 6px;
+                padding: 3px 4px 3px 14px;
+            }}
+
+            /* 16px font-size prevents iOS Safari from auto-zooming on input focus */
+            .chat-input {{
+                font-size: 16px;
+                padding: 5px 6px 5px 0;
+            }}
+
+            .send-btn {{
+                padding: 8px 16px;
+                font-size: 0.82rem;
             }}
         }}
     </style>
@@ -1165,10 +1300,10 @@ def serve_portal():
         <!-- MOBILE SEGMENTED TAB SWITCHER (Only visible on phones/tablets) -->
         <div class="mobile-tab-bar" role="tablist">
             <button type="button" class="mobile-tab-btn active" id="tabBtnChat" onclick="switchMobileView('chat')">
-                💬 AI Chat Assistant
+                💬 AI Chat
             </button>
             <button type="button" class="mobile-tab-btn" id="tabBtnExplorer" onclick="switchMobileView('explorer')">
-                📚 Handbook &amp; Citations <span class="citation-count-dot" id="mobileCitationBadge">3</span>
+                📚 Handbook &amp; Sources <span class="citation-count-dot" id="mobileCitationBadge">3</span>
             </button>
         </div>
 
@@ -1248,20 +1383,12 @@ def serve_portal():
             <section class="panel-card" id="panelChat" aria-label="Intuitive Admission AI Chatbot Conversation">
                 <div class="panel-header">
                     <h2 class="panel-title">Admission AI Assistant</h2>
+                    <span class="mobile-grounded-label"><span class="grounded-dot"></span>Handbook Grounded</span>
                     <div class="chat-header-actions">
                         <span class="latency-pill" id="latencyBadge">⚡ 0.0s</span>
-                        <span class="memory-pill" id="memoryBadge">Memory: 0 turns</span>
+                        <span class="memory-pill" id="memoryBadge">0 turns</span>
                         <button type="button" class="reset-btn" onclick="resetConversation()">Reset</button>
                     </div>
-                </div>
-
-                <!-- Mobile Quick-Inquiry Strip so mobile users can tap topics right inside Chat -->
-                <div class="mobile-quick-strip">
-                    <button type="button" class="topic-pill" onclick="askQuestion('What documents do incoming freshmen need to submit for admission?')">📋 Freshman Docs</button>
-                    <button type="button" class="topic-pill" onclick="askQuestion('What are the admission requirements for transferees?')">🔄 Transferees</button>
-                    <button type="button" class="topic-pill" onclick="askQuestion('What degree programs and courses are offered at TPC?')">🎓 7 TPC Programs</button>
-                    <button type="button" class="topic-pill" onclick="askQuestion('What is the attendance and tardiness policy at TPC?')">🕒 Attendance Rule</button>
-                    <button type="button" class="topic-pill" onclick="askQuestion('How do I apply for a student visa to study in Japan?')">🛡️ Refusal Demo</button>
                 </div>
 
                 <div class="chat-feed" id="chatFeed">
@@ -1269,9 +1396,18 @@ def serve_portal():
                         <img src="{LOGO_URL}" alt="TPC Seal" class="bot-avatar" width="34" height="34" decoding="async" />
                         <div class="msg-bubble">
                             Welcome to the <strong>Talibon Polytechnic College (TPC) Admission Portal</strong>! 👋<br><br>
-                            I am grounded strictly in the official 26-page TPC Student Handbook. Ask me about <strong>freshman checklists, transferee credentials, offered degree programs, academic load rules, or the 5-step enrollment process</strong>.
+                            Ask me about <strong>freshman checklists, transferee requirements, offered degree programs, academic load rules, or the 5-step enrollment process</strong>.
                         </div>
                     </div>
+                </div>
+
+                <!-- Mobile Quick-Inquiry Strip placed right above input bar for thumb ergonomics & zero top clutter -->
+                <div class="mobile-quick-strip">
+                    <button type="button" class="topic-pill" onclick="askQuestion('What documents do incoming freshmen need to submit for admission?')">📋 Freshman Docs</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('What are the admission requirements for transferees?')">🔄 Transferees</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('What degree programs and courses are offered at TPC?')">🎓 7 TPC Programs</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('What is the attendance and tardiness policy at TPC?')">🕒 Attendance Rule</button>
+                    <button type="button" class="topic-pill" onclick="askQuestion('How do I apply for a student visa to study in Japan?')">🛡️ Refusal Demo</button>
                 </div>
 
                 <form class="chat-input-shell" onsubmit="handleChatSubmit(event)">
@@ -1439,7 +1575,7 @@ def serve_portal():
                 chatHistory.push({{ role: "assistant", content: data.answer }});
 
                 const turnCount = chatHistory.filter(m => m.role === "user").length;
-                document.getElementById("memoryBadge").textContent = `Memory: ${{turnCount}} turn${{turnCount === 1 ? "" : "s"}}`;
+                document.getElementById("memoryBadge").textContent = `${{turnCount}} turn${{turnCount === 1 ? "" : "s"}}`;
 
                 if (data.latency_sec !== undefined) {{
                     const latBadge = document.getElementById("latencyBadge");
@@ -1479,7 +1615,7 @@ def serve_portal():
 
         function resetConversation() {{
             chatHistory = [];
-            document.getElementById("memoryBadge").textContent = "Memory: 0 turns";
+            document.getElementById("memoryBadge").textContent = "0 turns";
             document.getElementById("latencyBadge").style.display = "none";
             document.getElementById("reformulationBanner").style.display = "none";
             const feed = document.getElementById("chatFeed");
@@ -1492,7 +1628,10 @@ def serve_portal():
     </script>
 </body>
 </html>"""
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(
+        content=html_content,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
 
 
 if __name__ == "__main__":
