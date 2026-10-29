@@ -94,13 +94,12 @@ def get_rag_components():
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
-    # Configure Gemini for low-latency grounded synthesis (single call per turn, no long retry stalls)
+    # Configure Gemini 3.8 Flash with thinking_level="low" for fast, low-latency RAG synthesis
+    # Note: Do not set small timeout values as google-genai HttpOptions interprets timeout in milliseconds!
     llm = ChatGoogleGenerativeAI(
         model=model_name,
         temperature=0,
-        max_output_tokens=512,
-        timeout=25,
-        max_retries=1,
+        thinking_level="low",
     )
 
     # Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
