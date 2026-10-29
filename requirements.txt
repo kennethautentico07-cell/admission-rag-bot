@@ -1,3 +1,5 @@
+fastapi
+uvicorn
 streamlit
 langchain-huggingface
 sentence-transformers
@@ -7,3 +9,4 @@ python-dotenv
 langchain-text-splitters
 pypdf
 tiktoken
+pydantic
