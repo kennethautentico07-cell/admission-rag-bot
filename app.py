@@ -1,8 +1,10 @@
 import base64
 import os
 import re
+import time
 from typing import List, Optional
 
+import torch
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -17,13 +19,20 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
 
+# Prevent CPU thread thrashing on cloud container vCPUs (Railway / Docker)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+try:
+    torch.set_num_threads(2)
+except Exception:
+    pass
 
 app = FastAPI(
     title="TPC-Assist Admission Portal",
     description="RAG-Based Admission & Policy Chatbot for Talibon Polytechnic College",
-    version="2.0.0",
+    version="2.1.0",
 )
 
 
@@ -46,7 +55,14 @@ def get_rag_components():
     if _rag_components is not None:
         return _rag_components
 
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
+    # Pre-warm the PyTorch embedding model in memory so first user query is instant
+    embeddings.embed_query("Talibon Polytechnic College admission requirements")
+
     persist_dir = "chroma_db"
     vectorstore = Chroma(
         persist_directory=persist_dir,
@@ -77,28 +93,25 @@ def get_rag_components():
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-    llm = ChatGoogleGenerativeAI(model=model_name, temperature=0)
 
-    # 1. History-Aware Standalone Query Reformulation Chain (Prompt 3)
-    contextualize_q_template = """Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history. Do NOT answer the question, just reformulate it if needed and otherwise return it as is.
+    # Configure Gemini for low-latency grounded synthesis (single call per turn, no long retry stalls)
+    llm = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0,
+        max_output_tokens=512,
+        timeout=25,
+        max_retries=1,
+    )
 
-Chat History:
-{chat_history}
-
-Latest Question: {question}
-
-Standalone Question:"""
-    contextualize_q_prompt = ChatPromptTemplate.from_template(contextualize_q_template)
-    contextualize_q_chain = contextualize_q_prompt | llm | StrOutputParser()
-
-    # 2. Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
+    # Strict Grounded RAG Synthesis Chain with Multi-Turn Context (Prompt 1)
     qa_template = """You are an official academic assistant for Talibon Polytechnic College (TPC).
 Answer the question strictly based on the provided context below.
 
 Guidelines:
 1. Do not use outside knowledge or assume policies not stated in the context.
-2. Maintain a professional, polite, and helpful tone.
-3. If the context does not contain sufficient information to answer the question, state clearly:
+2. Maintain a professional, polite, and concise tone.
+3. If the question is a follow-up referring to earlier turns in the Chat History, resolve it using the Chat History and answer strictly from the Context.
+4. If the context does not contain sufficient information to answer the question, state clearly:
    "I cannot find this information in the official TPC manual."
 
 Context:
@@ -112,7 +125,7 @@ Question: {question}
     qa_prompt = ChatPromptTemplate.from_template(qa_template)
     qa_chain = qa_prompt | llm | StrOutputParser()
 
-    _rag_components = (retriever, contextualize_q_chain, qa_chain)
+    _rag_components = (retriever, qa_chain)
     return _rag_components
 
 
@@ -126,7 +139,38 @@ class ChatRequest(BaseModel):
     history: Optional[List[ChatTurn]] = []
 
 
-def format_chat_history(history: List[ChatTurn], max_turns: int = 5) -> str:
+FOLLOWUP_PRONOUN_PATTERN = re.compile(
+    r"\b(it|they|them|their|theirs|that|those|these|this|there|he|she|also|too|what about|how about|where do i|when do i|how do i submit)\b",
+    re.IGNORECASE,
+)
+
+
+def build_contextualized_query(question: str, history: List[ChatTurn]) -> tuple[str, bool]:
+    """
+    Instant (<1ms) history-aware query contextualizer.
+    Resolves follow-up questions with pronouns or implicit references against recent user turns
+    without making a second blocking LLM API call (preventing 429 rate-limit delays).
+    """
+    if not history:
+        return question, False
+
+    user_turns = [t.content.strip() for t in history if t.role == "user" and t.content.strip()]
+    if not user_turns:
+        return question, False
+
+    last_user_topic = user_turns[-1]
+    word_count = len(question.split())
+    has_followup_signal = bool(FOLLOWUP_PRONOUN_PATTERN.search(question)) or word_count <= 6
+
+    if not has_followup_signal:
+        return question, False
+
+    # Construct standalone retrieval query anchored by the previous inquiry context
+    standalone = f"{question} (regarding: {last_user_topic})"
+    return standalone, True
+
+
+def format_chat_history(history: List[ChatTurn], max_turns: int = 4) -> str:
     if not history:
         return "No previous conversation."
     recent = history[-(max_turns * 2) :]
@@ -160,7 +204,7 @@ def parse_source_chunk(raw_chunk: str, idx: int) -> dict:
 
 
 @app.on_event("startup")
-async def startup_event():
+def startup_event():
     try:
         get_rag_components()
     except Exception as e:
@@ -169,42 +213,40 @@ async def startup_event():
 
 @app.get("/health")
 @app.get("/_stcore/health")
-async def health_check():
+def health_check():
     return JSONResponse({"status": "ok", "service": "tpc-assist-rag"})
 
 
 @app.post("/api/chat")
-async def chat_endpoint(req: ChatRequest):
+def chat_endpoint(req: ChatRequest):
+    start_time = time.perf_counter()
     question = (req.question or "").strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     try:
-        retriever, contextualize_q_chain, qa_chain = get_rag_components()
+        retriever, qa_chain = get_rag_components()
         history_list = req.history or []
         history_str = format_chat_history(history_list)
-        has_history = len(history_list) > 0
 
-        if has_history:
-            standalone_query = contextualize_q_chain.invoke(
-                {"chat_history": history_str, "question": question}
-            ).strip()
-        else:
-            standalone_query = question
+        # 1. Instant history-aware query contextualization (<1ms, 0 extra API calls)
+        standalone_query, was_reformulated = build_contextualized_query(question, history_list)
 
+        # 2. Local ChromaDB Cosine retrieval (<15ms on pre-warmed CPU embeddings)
         docs = retriever.invoke(standalone_query)
         context_text = "\n\n".join([d.page_content for d in docs])
 
+        # 3. Single Gemini Flash API synthesis call
         answer = qa_chain.invoke(
             {
                 "context": context_text,
                 "chat_history": history_str,
-                "question": standalone_query,
+                "question": question,
             }
         )
 
+        elapsed_sec = round(time.perf_counter() - start_time, 2)
         parsed_sources = [parse_source_chunk(d.page_content, i) for i, d in enumerate(docs, 1)]
-        was_reformulated = has_history and (standalone_query.lower() != question.lower())
 
         return JSONResponse(
             {
@@ -212,6 +254,7 @@ async def chat_endpoint(req: ChatRequest):
                 "original_query": question,
                 "standalone_query": standalone_query,
                 "was_reformulated": was_reformulated,
+                "latency_sec": elapsed_sec,
                 "sources": parsed_sources,
             }
         )
@@ -220,7 +263,7 @@ async def chat_endpoint(req: ChatRequest):
 
 
 @app.get("/", response_class=HTMLResponse)
-async def serve_portal():
+def serve_portal():
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -385,7 +428,7 @@ async def serve_portal():
 
         .stepper-line-progress {{
             height: 100%;
-            width: 50%;
+            width: 25%;
             background: #FFFFFF;
             transition: width 0.3s ease;
         }}
@@ -445,7 +488,6 @@ async def serve_portal():
         }}
 
         /* --- SPLIT-SCREEN TWO-COLUMN WORKSPACE --- */
-        /* Left Column: TPC Handbook & Programs Explorer | Right Column: AI Chatbot Conversation */
         .split-workspace {{
             display: grid;
             grid-template-columns: 1fr 1.08fr;
@@ -685,7 +727,18 @@ async def serve_portal():
         .chat-header-actions {{
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+        }}
+
+        .latency-pill {{
+            background: #ECFDF5;
+            color: #065F46;
+            border: 1px solid #A7F3D0;
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 0.73rem;
+            font-weight: 700;
+            display: none;
         }}
 
         .memory-pill {{
@@ -861,7 +914,7 @@ async def serve_portal():
                     <h1 class="hero-title"><strong>TPC-Assist</strong> Admission Portal</h1>
                     <div class="hero-status-badges">
                         <span class="hero-badge">📚 26 Handbook Pages (38 Chunks)</span>
-                        <span class="hero-badge">✨ Gemini 3.8 Flash RAG</span>
+                        <span class="hero-badge">⚡ Fast Single-Pass RAG</span>
                     </div>
                 </div>
                 <p class="hero-subtitle">5-Step Enrollment Tracker — Click any step to inspect official procedures</p>
@@ -975,6 +1028,7 @@ async def serve_portal():
                 <div class="panel-header">
                     <h2 class="panel-title">Intuitive Admission AI Chatbot Conversation</h2>
                     <div class="chat-header-actions">
+                        <span class="latency-pill" id="latencyBadge">⚡ 0.0s</span>
                         <span class="memory-pill" id="memoryBadge">Memory: 0 turns</span>
                         <button type="button" class="reset-btn" onclick="resetConversation()">Reset Chat</button>
                     </div>
@@ -1127,10 +1181,16 @@ async def serve_portal():
                 const turnCount = chatHistory.filter(m => m.role === "user").length;
                 document.getElementById("memoryBadge").textContent = `Memory: ${{turnCount}} turn${{turnCount === 1 ? "" : "s"}}`;
 
+                if (data.latency_sec !== undefined) {{
+                    const latBadge = document.getElementById("latencyBadge");
+                    latBadge.style.display = "inline-block";
+                    latBadge.textContent = `⚡ ${{data.latency_sec}}s`;
+                }}
+
                 const refBanner = document.getElementById("reformulationBanner");
                 if (data.was_reformulated && data.standalone_query) {{
                     refBanner.style.display = "block";
-                    refBanner.innerHTML = `<strong>🔄 Multi-Turn Context Applied:</strong> Rewritten as <em>"${{data.standalone_query}}"</em>`;
+                    refBanner.innerHTML = `<strong>🔄 Multi-Turn Context Applied:</strong> Retrieved using <em>"${{data.standalone_query}}"</em>`;
                 }} else {{
                     refBanner.style.display = "none";
                 }}
@@ -1159,6 +1219,7 @@ async def serve_portal():
         function resetConversation() {{
             chatHistory = [];
             document.getElementById("memoryBadge").textContent = "Memory: 0 turns";
+            document.getElementById("latencyBadge").style.display = "none";
             document.getElementById("reformulationBanner").style.display = "none";
             const feed = document.getElementById("chatFeed");
             feed.innerHTML = "";
