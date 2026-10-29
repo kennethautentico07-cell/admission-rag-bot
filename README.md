@@ -32,28 +32,28 @@ The following diagram illustrates the complete end-to-end RAG architecture from 
 
 ```mermaid
 flowchart TD
-    subgraph DataPipeline ["1. Data Ingestion & Preprocessing (src/ingest.py)"]
-        A["Official TPC Handbook (26-Page PDF)"] --> B["Text Extraction & Regex Sanitation"]
-        B --> C["Recursive Character Chunking (500 chars / 50 overlap)"]
-        C --> D["Embedding Model: all-MiniLM-L6-v2 (384-dim)"]
-        D --> E[("Local ChromaDB Vector Store (38 Chunks, Cosine)")]
+    subgraph DataPipeline ["1. Data Ingestion and Preprocessing"]
+        A["Official TPC Handbook - 26-Page PDF"] --> B["Text Extraction and Regex Sanitation"]
+        B --> C["Recursive Character Chunking - 500 chars / 50 overlap"]
+        C --> D["Embedding Model: all-MiniLM-L6-v2 - 384-dim"]
+        D --> E[("Local ChromaDB Vector Store - 38 Chunks, Cosine")]
     end
 
-    subgraph UserInteraction ["2. Split-Screen Web Portal (FastAPI + Uvicorn)"]
-        U["Student / Applicant"] -->|Asks Question or Taps Step/Program Card| UI["Split-Screen Portal (Left: Explorer & Citations | Right: AI Chat)"]
-        UI -->|Query + Multi-Turn History| MEM["Instant Contextualizer & Session History"]
+    subgraph UserInteraction ["2. Split-Screen Web Portal - FastAPI and Uvicorn"]
+        U["Student / Applicant"] -->|Asks Question or Taps Card| UI["Split-Screen Portal: Handbook Explorer and AI Chat"]
+        UI -->|Query and Multi-Turn History| MEM["Instant Contextualizer and Session History"]
     end
 
-    subgraph Orchestration ["3. Retrieval & Multi-Model Synthesis (LangChain LCEL)"]
-        MEM -->|Standalone Query| RET["ChromaDB Similarity Search (Cosine Metric, k=3)"]
+    subgraph Orchestration ["3. Retrieval and Multi-Model Synthesis - LangChain LCEL"]
+        MEM -->|Standalone Query| RET["ChromaDB Similarity Search - Cosine Metric, k=3"]
         E -.->|Fetches Top-3 Handbook Chunks| RET
-        RET -->|Context Chunks| PROMPT["Strict System Prompt & Anti-Hallucination Guardrails"]
-        PROMPT -->|Formatted Context + Query| LLM["Google Gemini Flash Multi-Model Pool (Failover + Cache)"]
-        LLM -->|Grounded Response| OUT["Output Parser & Highlighted Citation Formatter"]
+        RET -->|Context Chunks| PROMPT["Strict System Prompt and Anti-Hallucination Guardrails"]
+        PROMPT -->|Formatted Context and Query| LLM["Google Gemini Flash Multi-Model Pool"]
+        LLM -->|Grounded Response| OUT["Output Parser and Highlighted Citation Formatter"]
     end
 
     OUT -->|Grounded Answer Bubble| UI
-    OUT -->|Verified Handbook Chunks (#1, #2, #3)| UI
+    OUT -->|Verified Handbook Citations| UI
 ```
 
 ---
@@ -79,8 +79,7 @@ admission-rag-bot/
 │   ├── distance_metric_analysis.md         # Checkpoint 2: Cosine vs Euclidean vs Dot Product
 │   ├── framework_comparison.md             # Checkpoint 3: LangChain vs LlamaIndex comparison
 │   ├── model_customization.md              # Checkpoint 4: PEFT/LoRA evaluation vs base model
-│   ├── final_technical_report.md           # Checkpoint 4: Consolidated 3-5 page technical report
-│   └── demo_video_script_and_defense_guide.md # Final Defense & Recorded Video Script
+│   └── final_technical_report.md           # Checkpoint 4: Consolidated 3-5 page technical report
 └── src/
     ├── ingest.py                           # Automated end-to-end PDF/Markdown ingestion pipeline
     ├── checkpoint1_pipeline.ipynb          # Jupyter notebook for tokenization & chunking demo
@@ -100,7 +99,7 @@ This project strictly adheres to the four-checkpoint evaluation framework specif
 | **Checkpoint 1: Foundation & Data Pipeline** | Prelim | 20% | 1. Project Proposal<br>2. Data Collection (20–30 pages)<br>3. Preprocessing & Tokenization Demo<br>4. Embedding Generation Demo<br>5. Messy Data Reflection | • [`docs/project_proposal.md`](docs/project_proposal.md)<br>• [`data/TPC_Admission_RAG_Knowledge_Base.pdf`](data/TPC_Admission_RAG_Knowledge_Base.pdf)<br>• [`src/preprocessing_demo.py`](src/preprocessing_demo.py)<br>• [`src/checkpoint1_pipeline.ipynb`](src/checkpoint1_pipeline.ipynb)<br>• [`src/embedding_demo.py`](src/embedding_demo.py) |
 | **Checkpoint 2: Prompt Architecture & Vector Indexing** | Midterm | 20% | 6. Structured Prompts (3 prompts)<br>7. Chat API Integration<br>8. Vector Database Setup<br>9. Distance Metric Comparison (Cosine/L2/Dot) | • [`docs/prompt_engineering.md`](docs/prompt_engineering.md)<br>• [`src/api_integration_demo.py`](src/api_integration_demo.py)<br>• [`docs/distance_metric_analysis.md`](docs/distance_metric_analysis.md)<br>• [`app.py`](app.py)<br>• [`src/checkpoint1_pipeline.ipynb`](src/checkpoint1_pipeline.ipynb) |
 | **Checkpoint 3: RAG Orchestration & Working Application** | Semi-Final | 30% | 10. Automated Ingestion Pipeline<br>11. Working RAG Application (LangChain)<br>12. Conversational Session Memory<br>13. Framework Comparison Note (LangChain vs LlamaIndex)<br>14. Multi-query Demo & Refusal Case | • [`src/ingest.py`](src/ingest.py)<br>• [`app.py`](app.py)<br>• [`docs/framework_comparison.md`](docs/framework_comparison.md)<br>• [`docs/prompt_engineering.md`](docs/prompt_engineering.md) |
-| **Checkpoint 4: Customization, Deployment & Final Defense** | Final | 30% | 15. PEFT/LoRA Customization Note<br>16. Web Application Interface (FastAPI Portal)<br>17. Containerization (Multi-Stage Dockerfile)<br>18. Deployment Evidence (Railway Live URL)<br>19. Final Technical Report (Consolidated)<br>20. Final Presentation & Defense | • [`docs/model_customization.md`](docs/model_customization.md)<br>• [`docs/final_technical_report.md`](docs/final_technical_report.md)<br>• [`docs/demo_video_script_and_defense_guide.md`](docs/demo_video_script_and_defense_guide.md)<br>• [`Dockerfile`](Dockerfile)<br>• [`app.py`](app.py) |
+| **Checkpoint 4: Customization, Deployment & Final Defense** | Final | 30% | 15. PEFT/LoRA Customization Note<br>16. Web Application Interface (FastAPI Portal)<br>17. Containerization (Multi-Stage Dockerfile)<br>18. Deployment Evidence (Railway Live URL)<br>19. Final Technical Report (Consolidated)<br>20. Final Presentation & Defense | • [`docs/model_customization.md`](docs/model_customization.md)<br>• [`docs/final_technical_report.md`](docs/final_technical_report.md)<br>• [`Dockerfile`](Dockerfile)<br>• [`app.py`](app.py) |
 
 ---
 

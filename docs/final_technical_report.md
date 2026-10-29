@@ -44,24 +44,24 @@ Navigating institutional admission policies, document checklists, academic load 
 
 ```mermaid
 flowchart TD
-    subgraph OfflineIngestion ["Stage A: Automated Ingestion Pipeline (src/ingest.py)"]
-        PDF["TPC Admission Handbook PDF (26 Pages)"] --> CLEAN["Regex Sanitation & Header Normalization"]
-        CLEAN --> MD["Normalized Corpus (extracted_enrollment_manual.md)"]
-        MD --> SPLIT["RecursiveCharacterTextSplitter (size=500, overlap=50)"]
-        SPLIT --> EMB["HuggingFace Embeddings (all-MiniLM-L6-v2, 384-dim)"]
-        EMB --> VDB[("ChromaDB Vector Store (Cosine Space, 38 Chunks)")]
+    subgraph OfflineIngestion ["Stage A: Automated Ingestion Pipeline"]
+        PDF["TPC Admission Handbook PDF - 26 Pages"] --> CLEAN["Regex Sanitation and Header Normalization"]
+        CLEAN --> MD["Normalized Corpus: extracted_enrollment_manual.md"]
+        MD --> SPLIT["RecursiveCharacterTextSplitter: size=500, overlap=50"]
+        SPLIT --> EMB["HuggingFace Embeddings: all-MiniLM-L6-v2, 384-dim"]
+        EMB --> VDB[("ChromaDB Vector Store - Cosine Space, 38 Chunks")]
     end
 
-    subgraph OnlineRuntime ["Stage B: Multi-Turn RAG Runtime (app.py)"]
-        USER["Student Query"] --> UI["Streamlit Chat UI"]
-        UI --> HIST["Session Memory Formatter (Last 5 Turns)"]
-        HIST --> REFORM["Chain 1: Standalone Query Reformulator (Prompt 3)"]
-        REFORM -->|Contextualized Query| RET["ChromaDB Retriever (Top-k = 3, Cosine)"]
+    subgraph OnlineRuntime ["Stage B: Multi-Turn RAG Runtime"]
+        USER["Student Query"] --> UI["FastAPI Split-Screen Portal UI"]
+        UI --> HIST["Session Memory Formatter"]
+        HIST --> REFORM["History-Aware Query Contextualizer"]
+        REFORM -->|Contextualized Query| RET["ChromaDB Retriever - Top-k = 3, Cosine"]
         VDB -.->|Top 3 Semantic Chunks| RET
-        RET --> SYNTH["Chain 2: Strict Grounded QA Synthesis (Prompt 1)"]
+        RET --> SYNTH["Strict Grounded QA Synthesis - Prompt 1"]
         HIST --> SYNTH
-        SYNTH -->|Prompt + Context| GEMINI["Google Gemini 3.8 Flash (temp = 0.0)"]
-        GEMINI --> ANS["Grounded Answer + Expandable Source Citations"]
+        SYNTH -->|Prompt and Context| GEMINI["Google Gemini Flash Multi-Model Pool"]
+        GEMINI --> ANS["Grounded Answer and Verified Source Citations"]
         ANS --> UI
     end
 ```
